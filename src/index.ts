@@ -24,6 +24,7 @@ export type {
 export type {
   AckContextPackageOptions,
   ContextPackageStore,
+  ListInboxPreviewsOptions,
   MailboxStore
 } from "./storage/mailbox-store.js";
 
@@ -34,11 +35,18 @@ export {
   commitArtifactSchema,
   contextPackagePreviewSchema,
   contextPackageSchema,
+  createContextPackagePreview,
   createContextPackageInputSchema,
+  DEFAULT_INBOX_PREVIEW_LIMIT,
   fileArtifactSchema,
   functionArtifactSchema,
+  MAX_INBOX_PREVIEW_LIMIT,
   mailboxNameSchema,
   mailboxSchema,
+  normalizeInboxPreviewLimit,
+  PREVIEW_SUMMARY_MAX_LENGTH,
+  PREVIEW_TAG_MAX_COUNT,
+  PREVIEW_TITLE_MAX_LENGTH,
   pullRequestArtifactSchema,
   urlArtifactSchema
 } from "./model/context-package.js";

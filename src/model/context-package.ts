@@ -120,6 +120,12 @@ export const contextPackagePreviewSchema = z.object({
   payloadKeys: z.array(z.string())
 });
 
+export const DEFAULT_INBOX_PREVIEW_LIMIT = 20;
+export const MAX_INBOX_PREVIEW_LIMIT = 50;
+export const PREVIEW_TITLE_MAX_LENGTH = 180;
+export const PREVIEW_SUMMARY_MAX_LENGTH = 280;
+export const PREVIEW_TAG_MAX_COUNT = 5;
+
 // Types are inferred from the Zod schemas so runtime validation and TypeScript
 // compile-time types cannot drift apart.
 export type MailboxName = z.infer<typeof mailboxNameSchema>;
@@ -138,3 +144,50 @@ export type NormalizedCreateContextPackageInput = z.output<
 >;
 export type ContextPackage = z.infer<typeof contextPackageSchema>;
 export type ContextPackagePreview = z.infer<typeof contextPackagePreviewSchema>;
+
+export function createContextPackagePreview(
+  contextPackage: ContextPackage
+): ContextPackagePreview {
+  // The preview is the safe shape for check_inbox: enough metadata to decide
+  // whether to read, but no body text, snippet code, or payload values.
+  return contextPackagePreviewSchema.parse({
+    id: contextPackage.id,
+    fromMailbox: contextPackage.fromMailbox,
+    toMailbox: contextPackage.toMailbox,
+    title: truncate(contextPackage.title, PREVIEW_TITLE_MAX_LENGTH),
+    summary: truncate(contextPackage.summary, PREVIEW_SUMMARY_MAX_LENGTH),
+    tags: contextPackage.tags.slice(0, PREVIEW_TAG_MAX_COUNT),
+    createdAt: contextPackage.createdAt,
+    readAt: contextPackage.readAt,
+    ack: contextPackage.ack,
+    artifactCounts: {
+      files: contextPackage.artifacts.files.length,
+      functions: contextPackage.artifacts.functions.length,
+      commits: contextPackage.artifacts.commits.length,
+      pullRequests: contextPackage.artifacts.pullRequests.length,
+      urls: contextPackage.artifacts.urls.length,
+      codeSnippets: contextPackage.artifacts.codeSnippets.length
+    },
+    payloadKeys: Object.keys(contextPackage.payload)
+  });
+}
+
+export function normalizeInboxPreviewLimit(limit?: number): number {
+  if (limit === undefined) {
+    return DEFAULT_INBOX_PREVIEW_LIMIT;
+  }
+
+  if (!Number.isFinite(limit)) {
+    return DEFAULT_INBOX_PREVIEW_LIMIT;
+  }
+
+  return Math.min(Math.max(Math.trunc(limit), 1), MAX_INBOX_PREVIEW_LIMIT);
+}
+
+function truncate(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return value.slice(0, maxLength);
+}
