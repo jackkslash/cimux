@@ -2,19 +2,23 @@ import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import {
+  createContextPackagePreview,
   contextPackageSchema,
   mailboxNameSchema,
-  mailboxSchema
+  mailboxSchema,
+  normalizeInboxPreviewLimit
 } from "../model/context-package.js";
 import type {
   AckState,
   Artifacts,
   ContextPackage,
+  ContextPackagePreview,
   Mailbox
 } from "../model/context-package.js";
 import type {
   AckContextPackageOptions,
   ContextPackageStore,
+  ListInboxPreviewsOptions,
   MailboxStore
 } from "./mailbox-store.js";
 
@@ -131,6 +135,33 @@ export class SQLiteCimuxStore implements MailboxStore, ContextPackageStore {
     return parsed;
   }
 
+  async listInboxPreviews(
+    mailboxName: string,
+    options: ListInboxPreviewsOptions = {}
+  ): Promise<ContextPackagePreview[]> {
+    const parsedMailboxName = mailboxNameSchema.parse(mailboxName);
+    const limit = normalizeInboxPreviewLimit(options.limit);
+    const clauses = ["to_mailbox = ?"];
+    const params: Array<string | number> = [parsedMailboxName];
+
+    if (options.unreadOnly) {
+      clauses.push("read_at is null");
+    }
+
+    params.push(limit);
+
+    const rows = this.db
+      .prepare(
+        `select * from context_packages
+         where ${clauses.join(" and ")}
+         order by created_at desc
+         limit ?`
+      )
+      .all(...params) as ContextPackageRow[];
+
+    return rows.map((row) => createContextPackagePreview(toContextPackage(row)));
+  }
+
   async readContextPackage(id: string): Promise<ContextPackage | null> {
     const contextPackage = await this.getContextPackage(id);
     if (!contextPackage) {
@@ -225,6 +256,9 @@ export class SQLiteCimuxStore implements MailboxStore, ContextPackageStore {
 
       create index if not exists idx_context_packages_id
         on context_packages (id);
+
+      create index if not exists idx_context_packages_inbox_created
+        on context_packages (to_mailbox, created_at desc);
     `);
   }
 }
