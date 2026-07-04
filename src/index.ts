@@ -21,7 +21,11 @@ export type {
   PullRequestArtifact,
   UrlArtifact
 } from "./model/context-package.js";
-export type { MailboxStore } from "./storage/mailbox-store.js";
+export type {
+  AckContextPackageOptions,
+  ContextPackageStore,
+  MailboxStore
+} from "./storage/mailbox-store.js";
 
 export {
   ackStateSchema,
@@ -38,4 +42,4 @@ export {
   pullRequestArtifactSchema,
   urlArtifactSchema
 } from "./model/context-package.js";
-export { SQLiteMailboxStore } from "./storage/sqlite-mailbox-store.js";
+export { SQLiteCimuxStore, UnknownMailboxError } from "./storage/sqlite-cimux-store.js";
