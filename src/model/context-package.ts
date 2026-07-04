@@ -10,6 +10,12 @@ export const mailboxNameSchema = z
     message: "Mailbox name must use harness/name format, for example codex/feature-checkout-ui"
   });
 
+export const mailboxSchema = z.object({
+  name: mailboxNameSchema,
+  createdAt: z.string().datetime(),
+  lastSeenAt: z.string().datetime().nullable()
+});
+
 // Artifacts are pointers that help the receiving agent find the relevant work.
 // They are not meant to replace the full repository, diff, or external system.
 export const fileArtifactSchema = z.object({
@@ -117,6 +123,7 @@ export const contextPackagePreviewSchema = z.object({
 // Types are inferred from the Zod schemas so runtime validation and TypeScript
 // compile-time types cannot drift apart.
 export type MailboxName = z.infer<typeof mailboxNameSchema>;
+export type Mailbox = z.infer<typeof mailboxSchema>;
 export type FileArtifact = z.infer<typeof fileArtifactSchema>;
 export type FunctionArtifact = z.infer<typeof functionArtifactSchema>;
 export type CommitArtifact = z.infer<typeof commitArtifactSchema>;

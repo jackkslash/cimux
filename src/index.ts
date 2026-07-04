@@ -15,11 +15,13 @@ export type {
   CreateContextPackageInput,
   FileArtifact,
   FunctionArtifact,
+  Mailbox,
   MailboxName,
   NormalizedCreateContextPackageInput,
   PullRequestArtifact,
   UrlArtifact
 } from "./model/context-package.js";
+export type { MailboxStore } from "./storage/mailbox-store.js";
 
 export {
   ackStateSchema,
@@ -32,6 +34,8 @@ export {
   fileArtifactSchema,
   functionArtifactSchema,
   mailboxNameSchema,
+  mailboxSchema,
   pullRequestArtifactSchema,
   urlArtifactSchema
 } from "./model/context-package.js";
+export { SQLiteMailboxStore } from "./storage/sqlite-mailbox-store.js";
