@@ -27,6 +27,10 @@ export type {
   ListInboxPreviewsOptions,
   MailboxStore
 } from "./storage/mailbox-store.js";
+export type {
+  RegisterMailboxInput,
+  RegisterMailboxResult
+} from "./registration/mailbox-registration.js";
 
 export {
   ackStateSchema,
@@ -50,4 +54,8 @@ export {
   pullRequestArtifactSchema,
   urlArtifactSchema
 } from "./model/context-package.js";
+export {
+  inferMailboxName,
+  registerMailbox
+} from "./registration/mailbox-registration.js";
 export { SQLiteCimuxStore, UnknownMailboxError } from "./storage/sqlite-cimux-store.js";
