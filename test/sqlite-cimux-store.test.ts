@@ -141,6 +141,45 @@ describe("SQLiteCimuxStore Context Packages", () => {
     expect(acknowledged?.ack.note).toBe("Loaded into context.");
   });
 
+  it("keeps the first ack when acknowledged twice", async () => {
+    await store.createMailbox("codex/backend-auth");
+    await store.createMailbox("claude/frontend-login");
+    await store.createContextPackage(makeContextPackage("ctx_ack_twice"));
+
+    const first = await store.ackContextPackage("ctx_ack_twice", {
+      ackBy: "claude/frontend-login",
+      note: "First ack."
+    });
+    const second = await store.ackContextPackage("ctx_ack_twice", {
+      ackBy: "codex/backend-auth",
+      note: "Second ack."
+    });
+
+    expect(second?.ack).toEqual(first?.ack);
+    expect(second?.ack.note).toBe("First ack.");
+  });
+
+  it("shares one database across concurrent store instances", async () => {
+    // The notify hook, MCP server, and CLI open their own connections to the
+    // same file. WAL and the busy timeout must let them interleave safely.
+    const databasePath = path.join(tempDir, "inbox.sqlite");
+    const other = new SQLiteCimuxStore(databasePath);
+
+    try {
+      await store.createMailbox("codex/backend-auth");
+      await store.createMailbox("claude/frontend-login");
+      await other.createContextPackage(makeContextPackage("ctx_shared"));
+
+      const read = await store.readContextPackage("ctx_shared");
+      const reread = await other.readContextPackage("ctx_shared");
+
+      expect(read?.readAt).toEqual(expect.any(String));
+      expect(reread?.readAt).toBe(read?.readAt);
+    } finally {
+      other.close();
+    }
+  });
+
   it("returns null when reading or acking a missing package", async () => {
     await expect(store.readContextPackage("ctx_missing")).resolves.toBeNull();
     await expect(
