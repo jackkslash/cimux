@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { runCimuxCli } from "../src/index.js";
+import { runCimuxCli, version as packageVersion } from "../src/index.js";
 
 let tempDir: string;
 let dbPath: string;
@@ -25,7 +25,7 @@ describe("Cimux CLI", () => {
     expect(help.stdout).toContain("Local-first mailboxes");
     expect(help.stdout).toContain("cimux send");
     expect(version.code).toBe(0);
-    expect(version.stdout).toBe("cimux 0.1.0");
+    expect(version.stdout).toBe(`cimux ${packageVersion}`);
   });
 
   it("runs a local mailbox handoff end to end", async () => {

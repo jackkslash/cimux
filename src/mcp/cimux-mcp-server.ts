@@ -16,12 +16,13 @@ import {
   sendContext
 } from "../service/cimux-mailbox-service.js";
 import { SQLiteCimuxStore } from "../storage/sqlite-cimux-store.js";
+import { version } from "../version.js";
 
 export function createCimuxMcpServer(databasePath = defaultDatabasePath()): McpServer {
   const store = new SQLiteCimuxStore(databasePath);
   const server = new McpServer({
     name: "cimux",
-    version: "0.1.0"
+    version
   });
 
   server.registerTool(
