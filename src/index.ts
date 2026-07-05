@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { fileURLToPath } from "node:url";
-import { createInstallPlan } from "./install/cimux-install-plan.js";
+import { applyInstallPlan, createInstallPlan } from "./install/cimux-install-plan.js";
 import { runCimuxMcpServer } from "./mcp/cimux-mcp-server.js";
 import { createInboxNotification } from "./service/cimux-mailbox-service.js";
 import { defaultDatabasePath } from "./mcp/cimux-mcp-server.js";
@@ -73,7 +73,7 @@ export {
   registerSession,
   sendContext
 } from "./service/cimux-mailbox-service.js";
-export { createInstallPlan } from "./install/cimux-install-plan.js";
+export { applyInstallPlan, createInstallPlan } from "./install/cimux-install-plan.js";
 export {
   createCimuxMcpServer,
   defaultDatabasePath,
@@ -98,7 +98,7 @@ if (isCliEntrypoint()) {
     runInstallCommand();
   } else {
     console.error(
-      "Usage: cimux mcp | cimux notify [--mailbox <harness/name> | --harness <name>] | cimux install --dry-run"
+      "Usage: cimux mcp | cimux notify [--mailbox <harness/name> | --harness <name>] | cimux install [--dry-run]"
     );
     process.exitCode = 1;
   }
@@ -138,13 +138,16 @@ async function runNotifyCommand(): Promise<void> {
 }
 
 function runInstallCommand(): void {
+  const plan = createInstallPlan();
   if (!process.argv.includes("--dry-run")) {
-    console.error("Usage: cimux install --dry-run");
-    process.exitCode = 1;
+    const results = applyInstallPlan(plan);
+    for (const result of results) {
+      const backup = result.backupPath ? ` backup: ${result.backupPath}` : "";
+      console.log(`${result.status}: ${result.path}${backup}`);
+    }
     return;
   }
 
-  const plan = createInstallPlan();
   for (const target of plan.targets) {
     console.log(`# ${target.harness}: ${target.path}`);
     console.log(`# ${target.purpose}`);
