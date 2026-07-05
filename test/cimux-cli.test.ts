@@ -17,6 +17,17 @@ afterEach(() => {
 });
 
 describe("Cimux CLI", () => {
+  it("prints help and version without opening the database", async () => {
+    const help = await runCli(["--help"]);
+    const version = await runCli(["--version"]);
+
+    expect(help.code).toBe(0);
+    expect(help.stdout).toContain("Local-first mailboxes");
+    expect(help.stdout).toContain("cimux send");
+    expect(version.code).toBe(0);
+    expect(version.stdout).toBe("cimux 0.1.0");
+  });
+
   it("runs a local mailbox handoff end to end", async () => {
     await runCli(["register", "--mailbox", "codex/backend-auth"]);
     await runCli(["register", "--mailbox", "claude/frontend-login"]);
@@ -124,4 +135,3 @@ async function runCli(argv: string[]) {
     stderr: stderr.join("\n")
   };
 }
-

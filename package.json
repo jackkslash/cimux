@@ -2,12 +2,29 @@
   "name": "cimux",
   "version": "0.1.0",
   "description": "Local-first mailbox for intentional AI agent context handoffs.",
+  "keywords": [
+    "mcp",
+    "agents",
+    "context",
+    "mailbox",
+    "codex",
+    "claude"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jackkslash/cimux.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jackkslash/cimux/issues"
+  },
+  "homepage": "https://github.com/jackkslash/cimux#readme",
   "type": "module",
   "bin": {
     "cimux": "./dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "scripts"
   ],
   "scripts": {
     "clean": "node --eval \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",

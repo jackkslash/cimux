@@ -10,6 +10,7 @@ import {
   sendContext
 } from "../service/cimux-mailbox-service.js";
 import { SQLiteCimuxStore } from "../storage/sqlite-cimux-store.js";
+import { name, version } from "../version.js";
 
 export type CimuxCliIo = {
   log(message: string): void;
@@ -31,6 +32,16 @@ export async function runCimuxCli(
   const command = argv[0];
 
   try {
+    if (!command || command === "help" || command === "--help" || command === "-h") {
+      io.log(usage());
+      return 0;
+    }
+
+    if (command === "version" || command === "--version" || command === "-v") {
+      io.log(`${name} ${version}`);
+      return 0;
+    }
+
     if (command === "mcp") {
       await runCimuxMcpServer(env.CIMUX_DB_PATH);
       return 0;
@@ -227,6 +238,10 @@ function writeJson(io: CimuxCliIo, value: unknown): void {
 
 function usage(): string {
   return [
+    `${name} ${version}`,
+    "",
+    "Local-first mailboxes for intentional AI agent context handoffs.",
+    "",
     "Usage:",
     "  cimux mcp",
     "  cimux install [--dry-run]",
@@ -235,7 +250,11 @@ function usage(): string {
     "  cimux send --from <mailbox> --to <mailbox> --title <title> --summary <summary> --body <body> [--tags a,b]",
     "  cimux check --mailbox <harness/name> [--all]",
     "  cimux read --mailbox <harness/name> --id <context-id>",
-    "  cimux ack --mailbox <harness/name> --id <context-id> [--note <note>]"
+    "  cimux ack --mailbox <harness/name> --id <context-id> [--note <note>]",
+    "",
+    "Examples:",
+    "  cimux install --dry-run",
+    "  cimux notify --harness codex",
+    "  cimux check --mailbox claude/frontend-login"
   ].join("\n");
 }
-

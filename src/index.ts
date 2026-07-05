@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 import { fileURLToPath } from "node:url";
 import { runCimuxCli } from "./cli/cimux-cli.js";
+import { name } from "./version.js";
 
-export const name = "cimux";
-export const version = "0.1.0";
+export { name, version } from "./version.js";
 
 export function getProjectStage(): string {
-  return "scaffold";
+  return "local-mvp";
 }
 
 export type {
