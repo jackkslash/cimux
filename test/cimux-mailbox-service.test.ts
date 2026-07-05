@@ -6,6 +6,7 @@ import {
   ackContext,
   checkInbox,
   ContextPackageNotFoundError,
+  createInboxNotification,
   MailboxAccessError,
   readContext,
   registerSession,
@@ -140,5 +141,45 @@ describe("Cimux mailbox service", () => {
         id: "ctx_missing"
       })
     ).rejects.toBeInstanceOf(ContextPackageNotFoundError);
+  });
+
+  it("returns no inbox notification for an empty inbox", async () => {
+    await store.createMailbox("claude/frontend-login");
+
+    const notification = await createInboxNotification(store, {
+      mailbox: "claude/frontend-login"
+    });
+
+    expect(notification.message).toBeNull();
+  });
+
+  it("returns one token-aware inbox notification line for unread packages", async () => {
+    await store.createMailbox("codex/backend-auth");
+    await store.createMailbox("claude/frontend-login");
+    await sendContext(store, {
+      fromMailbox: "codex/backend-auth",
+      toMailbox: "claude/frontend-login",
+      title: "Auth handoff",
+      summary: "Frontend needs context.",
+      body: "FULL_BODY_SHOULD_NOT_BE_IN_THE_HOOK",
+      tags: [],
+      artifacts: {
+        codeSnippets: [{ code: "SECRET_SNIPPET_SHOULD_NOT_BE_IN_THE_HOOK" }]
+      },
+      payload: {
+        privateDetail: "SECRET_PAYLOAD_SHOULD_NOT_BE_IN_THE_HOOK"
+      }
+    });
+
+    const notification = await createInboxNotification(store, {
+      mailbox: "claude/frontend-login"
+    });
+
+    expect(notification.message).toBe(
+      "Cimux: 1 unread context package(s) for claude/frontend-login from codex/backend-auth. Call check_inbox to preview."
+    );
+    expect(notification.message).not.toContain("FULL_BODY");
+    expect(notification.message).not.toContain("SECRET_SNIPPET");
+    expect(notification.message).not.toContain("SECRET_PAYLOAD");
   });
 });
