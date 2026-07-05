@@ -1,5 +1,5 @@
 {
-  "name": "cimux",
+  "name": "cimux-mcp",
   "version": "0.1.0",
   "description": "Local-first mailbox for intentional AI agent context handoffs.",
   "keywords": [
