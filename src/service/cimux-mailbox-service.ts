@@ -33,10 +33,16 @@ export const ackContextInputSchema = readContextInputSchema.extend({
   note: z.string().max(1000).optional()
 });
 
+export const inboxNotificationInputSchema = z.object({
+  mailbox: mailboxNameSchema,
+  limit: z.number().int().positive().max(10).default(10)
+});
+
 export type CimuxStore = MailboxStore & ContextPackageStore;
 export type CheckInboxInput = z.input<typeof checkInboxInputSchema>;
 export type ReadContextInput = z.input<typeof readContextInputSchema>;
 export type AckContextInput = z.input<typeof ackContextInputSchema>;
+export type InboxNotificationInput = z.input<typeof inboxNotificationInputSchema>;
 
 export type SendContextResult = {
   contextPackage: ContextPackage;
@@ -53,6 +59,10 @@ export type ReadContextResult = {
 
 export type AckContextResult = {
   contextPackage: ContextPackage;
+};
+
+export type InboxNotificationResult = {
+  message: string | null;
 };
 
 export class MailboxAccessError extends Error {
@@ -148,6 +158,32 @@ export async function ackContext(
   }
 
   return { contextPackage };
+}
+
+export async function createInboxNotification(
+  store: CimuxStore,
+  input: InboxNotificationInput
+): Promise<InboxNotificationResult> {
+  const parsed = inboxNotificationInputSchema.parse(input);
+  const previews = await store.listInboxPreviews(parsed.mailbox, {
+    unreadOnly: true,
+    limit: parsed.limit
+  });
+
+  if (previews.length === 0) {
+    return { message: null };
+  }
+
+  const senders = [...new Set(previews.map((preview) => preview.fromMailbox))];
+  const senderText = senders.slice(0, 3).join(", ");
+  const extraSenderCount = Math.max(senders.length - 3, 0);
+  const suffix = extraSenderCount > 0 ? ` and ${extraSenderCount} more` : "";
+
+  // This is the hook-safe output: one short line, no message body, no snippets,
+  // and no payload values. Empty inboxes return null so the hook emits nothing.
+  return {
+    message: `Cimux: ${previews.length} unread context package(s) for ${parsed.mailbox} from ${senderText}${suffix}. Call check_inbox to preview.`
+  };
 }
 
 async function assertPackageBelongsToMailbox(
