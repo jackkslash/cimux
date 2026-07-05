@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import { fileURLToPath } from "node:url";
+import { createInstallPlan } from "./install/cimux-install-plan.js";
 import { runCimuxMcpServer } from "./mcp/cimux-mcp-server.js";
 import { createInboxNotification } from "./service/cimux-mailbox-service.js";
 import { defaultDatabasePath } from "./mcp/cimux-mcp-server.js";
 import { SQLiteCimuxStore } from "./storage/sqlite-cimux-store.js";
+import { resolveRuntimeMailbox } from "./runtime/mailbox-runtime.js";
 
 export const name = "cimux";
 export const version = "0.1.0";
@@ -71,11 +73,13 @@ export {
   registerSession,
   sendContext
 } from "./service/cimux-mailbox-service.js";
+export { createInstallPlan } from "./install/cimux-install-plan.js";
 export {
   createCimuxMcpServer,
   defaultDatabasePath,
   runCimuxMcpServer
 } from "./mcp/cimux-mcp-server.js";
+export { resolveRuntimeMailbox } from "./runtime/mailbox-runtime.js";
 export {
   inferMailboxName,
   registerMailboxInputSchema,
@@ -90,8 +94,12 @@ if (isCliEntrypoint()) {
     await runCimuxMcpServer(process.env.CIMUX_DB_PATH);
   } else if (command === "notify") {
     await runNotifyCommand();
+  } else if (command === "install") {
+    runInstallCommand();
   } else {
-    console.error("Usage: cimux mcp | cimux notify --mailbox <harness/name>");
+    console.error(
+      "Usage: cimux mcp | cimux notify [--mailbox <harness/name> | --harness <name>] | cimux install --dry-run"
+    );
     process.exitCode = 1;
   }
 }
@@ -101,21 +109,46 @@ function isCliEntrypoint(): boolean {
 }
 
 async function runNotifyCommand(): Promise<void> {
-  const mailbox = readArg("--mailbox") ?? process.env.CIMUX_MAILBOX;
-  if (!mailbox) {
-    console.error("Usage: cimux notify --mailbox <harness/name>");
+  const explicitMailbox = readArg("--mailbox") ?? process.env.CIMUX_MAILBOX;
+  const harness = readArg("--harness") ?? process.env.CIMUX_HARNESS;
+  if (!explicitMailbox && !harness) {
+    console.error("Usage: cimux notify --mailbox <harness/name> | --harness <name>");
     process.exitCode = 1;
     return;
   }
 
   const store = new SQLiteCimuxStore(process.env.CIMUX_DB_PATH ?? defaultDatabasePath());
   try {
+    const { mailbox } = resolveRuntimeMailbox({
+      ...(explicitMailbox === undefined ? {} : { explicitMailbox }),
+      ...(harness === undefined ? {} : { harness }),
+      cwd: process.cwd()
+    });
+
+    // Hook checks also act as a heartbeat for the current local session name.
+    // Creation is idempotent, so this does not reset existing mailbox state.
+    await store.createMailbox(mailbox);
     const result = await createInboxNotification(store, { mailbox });
     if (result.message) {
       console.log(result.message);
     }
   } finally {
     store.close();
+  }
+}
+
+function runInstallCommand(): void {
+  if (!process.argv.includes("--dry-run")) {
+    console.error("Usage: cimux install --dry-run");
+    process.exitCode = 1;
+    return;
+  }
+
+  const plan = createInstallPlan();
+  for (const target of plan.targets) {
+    console.log(`# ${target.harness}: ${target.path}`);
+    console.log(`# ${target.purpose}`);
+    console.log(target.snippet);
   }
 }
 
