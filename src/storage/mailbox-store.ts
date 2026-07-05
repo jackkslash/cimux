@@ -29,6 +29,7 @@ export type ContextPackageStore = {
     mailboxName: string,
     options?: ListInboxPreviewsOptions
   ): Promise<ContextPackagePreview[]>;
+  getContextPackage(id: string): Promise<ContextPackage | null>;
   readContextPackage(id: string): Promise<ContextPackage | null>;
   ackContextPackage(
     id: string,
