@@ -33,6 +33,8 @@ Not included yet:
 - remote auth
 - read-only inspector UI
 
+See [docs/mvp-readiness.md](docs/mvp-readiness.md) for the release checklist and known limits.
+
 ## Install Locally
 
 From the repo:
@@ -112,6 +114,10 @@ npm run demo:local
 npm test
 npm run typecheck
 npm run build
+npm run demo:local
 npm pack --dry-run
 ```
 
+## MVP Readiness
+
+Before calling a build MVP-complete, run the automated checks and manual harness verification in [docs/mvp-readiness.md](docs/mvp-readiness.md).
