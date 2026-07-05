@@ -1,3 +1,7 @@
+#!/usr/bin/env node
+import { fileURLToPath } from "node:url";
+import { runCimuxMcpServer } from "./mcp/cimux-mcp-server.js";
+
 export const name = "cimux";
 export const version = "0.1.0";
 
@@ -55,7 +59,37 @@ export {
   urlArtifactSchema
 } from "./model/context-package.js";
 export {
+  ackContext,
+  checkInbox,
+  ContextPackageNotFoundError,
+  MailboxAccessError,
+  readContext,
+  registerSession,
+  sendContext
+} from "./service/cimux-mailbox-service.js";
+export {
+  createCimuxMcpServer,
+  defaultDatabasePath,
+  runCimuxMcpServer
+} from "./mcp/cimux-mcp-server.js";
+export {
   inferMailboxName,
+  registerMailboxInputSchema,
   registerMailbox
 } from "./registration/mailbox-registration.js";
 export { SQLiteCimuxStore, UnknownMailboxError } from "./storage/sqlite-cimux-store.js";
+
+if (isCliEntrypoint()) {
+  const command = process.argv[2];
+
+  if (command === "mcp") {
+    await runCimuxMcpServer(process.env.CIMUX_DB_PATH);
+  } else {
+    console.error("Usage: cimux mcp");
+    process.exitCode = 1;
+  }
+}
+
+function isCliEntrypoint(): boolean {
+  return process.argv[1] === fileURLToPath(import.meta.url);
+}

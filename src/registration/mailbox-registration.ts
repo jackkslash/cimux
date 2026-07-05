@@ -1,14 +1,17 @@
+import { z } from "zod";
 import { mailboxNameSchema } from "../model/context-package.js";
 import type { Mailbox } from "../model/context-package.js";
 import type { MailboxStore } from "../storage/mailbox-store.js";
 
-export type RegisterMailboxInput = {
-  harness: string;
-  explicitMailbox?: string;
-  branchName?: string;
-  taskName?: string;
-  folderName?: string;
-};
+export const registerMailboxInputSchema = z.object({
+  harness: z.string().min(1),
+  explicitMailbox: mailboxNameSchema.optional(),
+  branchName: z.string().min(1).optional(),
+  taskName: z.string().min(1).optional(),
+  folderName: z.string().min(1).optional()
+});
+
+export type RegisterMailboxInput = z.input<typeof registerMailboxInputSchema>;
 
 export type RegisterMailboxResult = {
   mailbox: Mailbox;
@@ -20,14 +23,15 @@ export async function registerMailbox(
   store: MailboxStore,
   input: RegisterMailboxInput
 ): Promise<RegisterMailboxResult> {
-  const inferredName = inferMailboxName(input);
+  const parsed = registerMailboxInputSchema.parse(input);
+  const inferredName = inferMailboxName(parsed);
   const mailbox = await store.createMailbox(inferredName);
   const mailboxes = await store.listMailboxes();
 
   return {
     mailbox,
     mailboxes,
-    inferred: !input.explicitMailbox
+    inferred: !parsed.explicitMailbox
   };
 }
 

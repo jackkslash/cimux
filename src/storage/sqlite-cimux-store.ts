@@ -183,6 +183,14 @@ export class SQLiteCimuxStore implements MailboxStore, ContextPackageStore {
     };
   }
 
+  async getContextPackage(id: string): Promise<ContextPackage | null> {
+    const row = this.db
+      .prepare("select * from context_packages where id = ?")
+      .get(id) as ContextPackageRow | undefined;
+
+    return row ? toContextPackage(row) : null;
+  }
+
   async ackContextPackage(
     id: string,
     options: AckContextPackageOptions
@@ -219,14 +227,6 @@ export class SQLiteCimuxStore implements MailboxStore, ContextPackageStore {
     if (!mailbox) {
       throw new UnknownMailboxError(name);
     }
-  }
-
-  private async getContextPackage(id: string): Promise<ContextPackage | null> {
-    const row = this.db
-      .prepare("select * from context_packages where id = ?")
-      .get(id) as ContextPackageRow | undefined;
-
-    return row ? toContextPackage(row) : null;
   }
 
   private migrate(): void {
