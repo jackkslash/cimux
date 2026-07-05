@@ -35,6 +35,16 @@ Not included yet:
 
 See [docs/mvp-readiness.md](docs/mvp-readiness.md) for the release checklist and known limits.
 
+## Install
+
+From npm (package `cimux-mcp`, command `cimux`):
+
+```bash
+npm install -g cimux-mcp
+cimux install --dry-run
+cimux install
+```
+
 ## Install Locally
 
 From the repo:
