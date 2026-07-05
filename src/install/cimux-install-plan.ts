@@ -33,6 +33,7 @@ export function createInstallPlan(input: InstallPlanInput = {}): InstallPlan {
   const codexHome = path.join(parsed.homeDirectory, ".codex");
   const claudeHome = path.join(parsed.homeDirectory, ".claude");
 
+  // Codex has no hook system, so it only gets the MCP server.
   return {
     targets: [
       {
@@ -41,14 +42,6 @@ export function createInstallPlan(input: InstallPlanInput = {}): InstallPlan {
         purpose: "Register the Cimux MCP server for Codex.",
         format: "toml",
         snippet: createCodexMcpSnippet(parsed.packageCommand)
-      },
-      {
-        harness: "codex",
-        path: path.join(codexHome, "hooks.json"),
-        purpose:
-          "Run a zero-token inbox check on each user prompt. Empty inboxes emit no output.",
-        format: "json",
-        snippet: createCodexHookSnippet(parsed.packageCommand)
       },
       {
         harness: "claude",
@@ -60,8 +53,9 @@ export function createInstallPlan(input: InstallPlanInput = {}): InstallPlan {
       },
       {
         harness: "claude",
-        path: path.join(claudeHome, ".mcp.json"),
-        purpose: "Register the Cimux MCP server for Claude Code.",
+        // Claude Code reads user-scope MCP servers from ~/.claude.json.
+        path: path.join(parsed.homeDirectory, ".claude.json"),
+        purpose: "Register the Cimux MCP server for Claude Code (user scope).",
         format: "json",
         snippet: createClaudeMcpSnippet(parsed.packageCommand)
       }
@@ -213,27 +207,6 @@ args = ["mcp"]
 startup_timeout_sec = 10
 tool_timeout_sec = 60
 `;
-}
-
-function createCodexHookSnippet(packageCommand: string): string {
-  return JSON.stringify(
-    {
-      hooks: {
-        UserPromptSubmit: [
-          {
-            hooks: [
-              {
-                type: "command",
-                command: `${packageCommand} notify --harness codex`
-              }
-            ]
-          }
-        ]
-      }
-    },
-    null,
-    2
-  );
 }
 
 function createClaudeHookSnippet(packageCommand: string): string {

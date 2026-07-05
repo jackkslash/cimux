@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { runCimuxCli } from "./cli/cimux-cli.js";
 import { name } from "./version.js";
@@ -87,6 +88,15 @@ if (isCliEntrypoint()) {
   process.exitCode = await runCimuxCli(process.argv.slice(2));
 }
 
-function isCliEntrypoint(): boolean {
-  return process.argv[1] === fileURLToPath(import.meta.url);
+export function isCliEntrypoint(
+  argvPath = process.argv[1],
+  modulePath = fileURLToPath(import.meta.url)
+): boolean {
+  if (!argvPath) {
+    return false;
+  }
+
+  // npm link and global installs usually invoke the bin through a symlink.
+  // Compare real paths so the published command still reaches runCimuxCli.
+  return fs.realpathSync(argvPath) === fs.realpathSync(modulePath);
 }
