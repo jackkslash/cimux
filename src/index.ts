@@ -98,5 +98,10 @@ export function isCliEntrypoint(
 
   // npm link and global installs usually invoke the bin through a symlink.
   // Compare real paths so the published command still reaches runCimuxCli.
-  return fs.realpathSync(argvPath) === fs.realpathSync(modulePath);
+  try {
+    return fs.realpathSync(argvPath) === fs.realpathSync(modulePath);
+  } catch {
+    // argv[1] may not be a resolvable path when embedded or bundled.
+    return false;
+  }
 }
