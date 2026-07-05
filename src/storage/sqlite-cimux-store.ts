@@ -51,7 +51,13 @@ export class SQLiteCimuxStore implements MailboxStore, ContextPackageStore {
     // will point this at ~/.cimux/inbox.sqlite; tests can use a temp path.
     fs.mkdirSync(path.dirname(databasePath), { recursive: true });
     this.db = new DatabaseSync(databasePath);
-    this.db.exec("pragma foreign_keys = ON;");
+    // WAL and a busy timeout let the notify hook, MCP server, and CLI share
+    // the database across processes without SQLITE_BUSY failures.
+    this.db.exec(`
+      pragma journal_mode = WAL;
+      pragma busy_timeout = 5000;
+      pragma foreign_keys = ON;
+    `);
     this.migrate();
   }
 
@@ -163,24 +169,22 @@ export class SQLiteCimuxStore implements MailboxStore, ContextPackageStore {
   }
 
   async readContextPackage(id: string): Promise<ContextPackage | null> {
-    const contextPackage = await this.getContextPackage(id);
-    if (!contextPackage) {
-      return null;
+    // A single guarded update keeps the first read timestamp when concurrent
+    // processes read the same package.
+    const row = this.db
+      .prepare(
+        `update context_packages set read_at = ?
+         where id = ? and read_at is null
+         returning *`
+      )
+      .get(new Date().toISOString(), id) as ContextPackageRow | undefined;
+
+    if (row) {
+      return toContextPackage(row);
     }
 
-    if (contextPackage.readAt) {
-      return contextPackage;
-    }
-
-    const readAt = new Date().toISOString();
-    this.db
-      .prepare("update context_packages set read_at = ? where id = ?")
-      .run(readAt, contextPackage.id);
-
-    return {
-      ...contextPackage,
-      readAt
-    };
+    // Already read or missing.
+    return this.getContextPackage(id);
   }
 
   async getContextPackage(id: string): Promise<ContextPackage | null> {
@@ -195,11 +199,6 @@ export class SQLiteCimuxStore implements MailboxStore, ContextPackageStore {
     id: string,
     options: AckContextPackageOptions
   ): Promise<ContextPackage | null> {
-    const contextPackage = await this.getContextPackage(id);
-    if (!contextPackage) {
-      return null;
-    }
-
     const ackBy = mailboxNameSchema.parse(options.ackBy);
     const ack: AckState = {
       status: "acknowledged",
@@ -208,14 +207,22 @@ export class SQLiteCimuxStore implements MailboxStore, ContextPackageStore {
       note: options.note ?? null
     };
 
-    this.db
-      .prepare("update context_packages set ack_json = ? where id = ?")
-      .run(JSON.stringify(ack), id);
+    // First ack wins: a repeated ack cannot overwrite the original note or
+    // timestamp, even across concurrent processes.
+    const row = this.db
+      .prepare(
+        `update context_packages set ack_json = ?
+         where id = ? and json_extract(ack_json, '$.status') = 'pending'
+         returning *`
+      )
+      .get(JSON.stringify(ack), id) as ContextPackageRow | undefined;
 
-    return {
-      ...contextPackage,
-      ack
-    };
+    if (row) {
+      return toContextPackage(row);
+    }
+
+    // Already acknowledged or missing.
+    return this.getContextPackage(id);
   }
 
   close(): void {
@@ -254,8 +261,7 @@ export class SQLiteCimuxStore implements MailboxStore, ContextPackageStore {
         ack_json text not null
       );
 
-      create index if not exists idx_context_packages_id
-        on context_packages (id);
+      drop index if exists idx_context_packages_id;
 
       create index if not exists idx_context_packages_inbox_created
         on context_packages (to_mailbox, created_at desc);
