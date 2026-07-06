@@ -33,7 +33,6 @@ export function createInstallPlan(input: InstallPlanInput = {}): InstallPlan {
   const codexHome = path.join(parsed.homeDirectory, ".codex");
   const claudeHome = path.join(parsed.homeDirectory, ".claude");
 
-  // Codex has no hook system, so it only gets the MCP server.
   return {
     targets: [
       {
@@ -44,12 +43,22 @@ export function createInstallPlan(input: InstallPlanInput = {}): InstallPlan {
         snippet: createCodexMcpSnippet(parsed.packageCommand)
       },
       {
+        harness: "codex",
+        // Codex hooks share Claude Code's shape; Codex asks the user to trust
+        // a hook on first use and after any change to it.
+        path: path.join(codexHome, "hooks.json"),
+        purpose:
+          "Run a zero-token inbox check on each user prompt. Empty inboxes emit no output.",
+        format: "json",
+        snippet: createHookSnippet(parsed.packageCommand, "codex")
+      },
+      {
         harness: "claude",
         path: path.join(claudeHome, "settings.json"),
         purpose:
           "Run a zero-token inbox check on each user prompt. Empty inboxes emit no output.",
         format: "json",
-        snippet: createClaudeHookSnippet(parsed.packageCommand)
+        snippet: createHookSnippet(parsed.packageCommand, "claude")
       },
       {
         harness: "claude",
@@ -209,7 +218,8 @@ tool_timeout_sec = 60
 `;
 }
 
-function createClaudeHookSnippet(packageCommand: string): string {
+// Codex and Claude Code share the same hooks JSON shape and event names.
+function createHookSnippet(packageCommand: string, harness: "codex" | "claude"): string {
   return JSON.stringify(
     {
       hooks: {
@@ -218,7 +228,7 @@ function createClaudeHookSnippet(packageCommand: string): string {
             hooks: [
               {
                 type: "command",
-                command: `${packageCommand} notify --harness claude`
+                command: `${packageCommand} notify --harness ${harness}`
               }
             ]
           }

@@ -23,6 +23,7 @@ describe("Cimux install plan", () => {
 
     expect(plan.targets.map((target) => target.path)).toEqual([
       "/Users/example/.codex/config.toml",
+      "/Users/example/.codex/hooks.json",
       "/Users/example/.claude/settings.json",
       "/Users/example/.claude.json"
     ]);
@@ -35,6 +36,7 @@ describe("Cimux install plan", () => {
     });
     const snippets = plan.targets.map((target) => target.snippet).join("\n");
 
+    expect(snippets).toContain("cimux notify --harness codex");
     expect(snippets).toContain("cimux notify --harness claude");
     expect(snippets).not.toContain("--mailbox");
   });
@@ -48,8 +50,8 @@ describe("Cimux install plan", () => {
     expect(plan.targets[0]?.snippet).toContain("[mcp_servers.cimux]");
     expect(plan.targets[0]?.snippet).toContain('command = "cimux"');
     expect(plan.targets[0]?.snippet).toContain('args = ["mcp"]');
-    expect(plan.targets[2]?.snippet).toContain('"mcpServers"');
-    expect(plan.targets[2]?.snippet).toContain('"args": [\n        "mcp"\n      ]');
+    expect(plan.targets[3]?.snippet).toContain('"mcpServers"');
+    expect(plan.targets[3]?.snippet).toContain('"args": [\n        "mcp"\n      ]');
   });
 
   it("creates missing config files when applying the install plan", () => {
@@ -63,10 +65,14 @@ describe("Cimux install plan", () => {
     expect(results.map((result) => result.status)).toEqual([
       "created",
       "created",
+      "created",
       "created"
     ]);
     expect(fs.readFileSync(path.join(tempDir, ".codex", "config.toml"), "utf8")).toContain(
       "[mcp_servers.cimux]"
+    );
+    expect(fs.readFileSync(path.join(tempDir, ".codex", "hooks.json"), "utf8")).toContain(
+      "cimux notify --harness codex"
     );
     expect(fs.readFileSync(path.join(tempDir, ".claude", "settings.json"), "utf8")).toContain(
       "cimux notify --harness claude"
@@ -132,6 +138,7 @@ describe("Cimux install plan", () => {
     );
 
     expect(secondRun.map((result) => result.status)).toEqual([
+      "unchanged",
       "unchanged",
       "unchanged",
       "unchanged"
