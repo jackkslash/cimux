@@ -1,3 +1,4 @@
+import path from "node:path";
 import { applyInstallPlan, createInstallPlan } from "../install/cimux-install-plan.js";
 import { defaultDatabasePath, runCimuxMcpServer } from "../mcp/cimux-mcp-server.js";
 import { resolveRuntimeMailbox } from "../runtime/mailbox-runtime.js";
@@ -153,7 +154,7 @@ async function runNotifyCommand(
 }
 
 function runInstallCommand(argv: string[], io: CimuxCliIo): number {
-  const plan = createInstallPlan();
+  const plan = createInstallPlan({ packageCommand: resolvePackageCommand() });
   if (!argv.includes("--dry-run")) {
     const results = applyInstallPlan(plan);
     for (const result of results) {
@@ -169,6 +170,13 @@ function runInstallCommand(argv: string[], io: CimuxCliIo): number {
     io.log(target.snippet);
   }
   return 0;
+}
+
+function resolvePackageCommand(): string {
+  // GUI-launched harnesses (e.g. the Codex desktop app) do not inherit the
+  // shell PATH, so write the absolute path of the running bin into config.
+  const binPath = process.argv[1];
+  return binPath && path.isAbsolute(binPath) ? binPath : "cimux";
 }
 
 async function withStore(
