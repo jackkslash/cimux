@@ -14,7 +14,7 @@ export type InstallPlanTarget = {
   harness: "codex" | "claude";
   path: string;
   purpose: string;
-  format: "toml" | "json";
+  format: "toml" | "json" | "markdown";
   snippet: string;
 };
 
@@ -48,17 +48,31 @@ export function createInstallPlan(input: InstallPlanInput = {}): InstallPlan {
         // a hook on first use and after any change to it.
         path: path.join(codexHome, "hooks.json"),
         purpose:
-          "Run a zero-token inbox check on each user prompt. Empty inboxes emit no output.",
+          "Notify on unread mail each prompt; brief the agent on its mailbox at session start.",
         format: "json",
         snippet: createHookSnippet(parsed.packageCommand, "codex")
+      },
+      {
+        harness: "codex",
+        path: path.join(codexHome, "AGENTS.md"),
+        purpose: "Teach Codex agents to check and send Cimux mail without prompting.",
+        format: "markdown",
+        snippet: createAgentNormsSnippet()
       },
       {
         harness: "claude",
         path: path.join(claudeHome, "settings.json"),
         purpose:
-          "Run a zero-token inbox check on each user prompt. Empty inboxes emit no output.",
+          "Notify on unread mail each prompt; brief the agent on its mailbox at session start.",
         format: "json",
         snippet: createHookSnippet(parsed.packageCommand, "claude")
+      },
+      {
+        harness: "claude",
+        path: path.join(claudeHome, "CLAUDE.md"),
+        purpose: "Teach Claude Code agents to check and send Cimux mail without prompting.",
+        format: "markdown",
+        snippet: createAgentNormsSnippet()
       },
       {
         harness: "claude",
@@ -83,12 +97,37 @@ function applyInstallTarget(target: InstallPlanTarget): InstallResult {
     return applyTomlTarget(target);
   }
 
+  if (target.format === "markdown") {
+    return applyMarkdownTarget(target);
+  }
+
   return applyJsonTarget(target);
 }
 
 function applyTomlTarget(target: InstallPlanTarget): InstallResult {
   const existing = readTextIfExists(target.path);
   if (existing?.includes("[mcp_servers.cimux]")) {
+    return {
+      path: target.path,
+      status: "unchanged",
+      backupPath: null
+    };
+  }
+
+  const backupPath = existing === null ? null : writeBackup(target.path, existing);
+  const next = existing === null ? target.snippet : appendBlock(existing, target.snippet);
+  fs.writeFileSync(target.path, next, "utf8");
+
+  return {
+    path: target.path,
+    status: existing === null ? "created" : "updated",
+    backupPath
+  };
+}
+
+function applyMarkdownTarget(target: InstallPlanTarget): InstallResult {
+  const existing = readTextIfExists(target.path);
+  if (existing?.includes(AGENT_NORMS_MARKER)) {
     return {
       path: target.path,
       status: "unchanged",
@@ -232,12 +271,37 @@ function createHookSnippet(packageCommand: string, harness: "codex" | "claude"):
               }
             ]
           }
+        ],
+        SessionStart: [
+          {
+            hooks: [
+              {
+                type: "command",
+                command: `${packageCommand} brief --harness ${harness}`
+              }
+            ]
+          }
         ]
       }
     },
     null,
     2
   );
+}
+
+const AGENT_NORMS_MARKER = "<!-- cimux:norms -->";
+
+function createAgentNormsSnippet(): string {
+  return `${AGENT_NORMS_MARKER}
+## Cimux agent mail
+
+You have a Cimux mailbox (MCP server \`cimux\`). Follow these norms without being asked:
+
+- When notified of unread context packages, call \`check_inbox\`, use \`read_context\` on what is relevant, and \`ack_context\` after loading it.
+- When you finish work whose outcome another agent or a future session may need (root causes, decisions, gotchas, handoffs), send it with \`send_context\`: short title, tight summary, full detail in the body, artifact pointers instead of pasted file contents.
+- Find recipients with \`list_mailboxes\`; only existing mailboxes can receive mail. Register your own with \`register_session\` if unsure.
+<!-- cimux:end -->
+`;
 }
 
 function createClaudeMcpSnippet(packageCommand: string): string {

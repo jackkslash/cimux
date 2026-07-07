@@ -24,7 +24,9 @@ describe("Cimux install plan", () => {
     expect(plan.targets.map((target) => target.path)).toEqual([
       "/Users/example/.codex/config.toml",
       "/Users/example/.codex/hooks.json",
+      "/Users/example/.codex/AGENTS.md",
       "/Users/example/.claude/settings.json",
+      "/Users/example/.claude/CLAUDE.md",
       "/Users/example/.claude.json"
     ]);
   });
@@ -37,7 +39,9 @@ describe("Cimux install plan", () => {
     const snippets = plan.targets.map((target) => target.snippet).join("\n");
 
     expect(snippets).toContain("cimux notify --harness codex");
+    expect(snippets).toContain("cimux brief --harness codex");
     expect(snippets).toContain("cimux notify --harness claude");
+    expect(snippets).toContain("cimux brief --harness claude");
     expect(snippets).not.toContain("--mailbox");
   });
 
@@ -50,8 +54,8 @@ describe("Cimux install plan", () => {
     expect(plan.targets[0]?.snippet).toContain("[mcp_servers.cimux]");
     expect(plan.targets[0]?.snippet).toContain('command = "cimux"');
     expect(plan.targets[0]?.snippet).toContain('args = ["mcp"]');
-    expect(plan.targets[3]?.snippet).toContain('"mcpServers"');
-    expect(plan.targets[3]?.snippet).toContain('"args": [\n        "mcp"\n      ]');
+    expect(plan.targets[5]?.snippet).toContain('"mcpServers"');
+    expect(plan.targets[5]?.snippet).toContain('"args": [\n        "mcp"\n      ]');
   });
 
   it("creates missing config files when applying the install plan", () => {
@@ -66,6 +70,8 @@ describe("Cimux install plan", () => {
       "created",
       "created",
       "created",
+      "created",
+      "created",
       "created"
     ]);
     expect(fs.readFileSync(path.join(tempDir, ".codex", "config.toml"), "utf8")).toContain(
@@ -74,12 +80,35 @@ describe("Cimux install plan", () => {
     expect(fs.readFileSync(path.join(tempDir, ".codex", "hooks.json"), "utf8")).toContain(
       "cimux notify --harness codex"
     );
+    expect(fs.readFileSync(path.join(tempDir, ".codex", "AGENTS.md"), "utf8")).toContain(
+      "Cimux agent mail"
+    );
     expect(fs.readFileSync(path.join(tempDir, ".claude", "settings.json"), "utf8")).toContain(
       "cimux notify --harness claude"
+    );
+    expect(fs.readFileSync(path.join(tempDir, ".claude", "CLAUDE.md"), "utf8")).toContain(
+      "Cimux agent mail"
     );
     expect(fs.readFileSync(path.join(tempDir, ".claude.json"), "utf8")).toContain(
       '"cimux"'
     );
+  });
+
+  it("appends agent norms to an existing CLAUDE.md without duplicating them", () => {
+    const claudeMdPath = path.join(tempDir, ".claude", "CLAUDE.md");
+    fs.mkdirSync(path.dirname(claudeMdPath), { recursive: true });
+    fs.writeFileSync(claudeMdPath, "# My existing notes\n\nKeep these.\n");
+
+    const plan = createInstallPlan({ homeDirectory: tempDir, packageCommand: "cimux" });
+    applyInstallPlan(plan);
+    const secondRun = applyInstallPlan(plan);
+    const content = fs.readFileSync(claudeMdPath, "utf8");
+
+    expect(content).toContain("Keep these.");
+    expect(content.match(/Cimux agent mail/g)).toHaveLength(1);
+    expect(
+      secondRun.find((result) => result.path === claudeMdPath)?.status
+    ).toBe("unchanged");
   });
 
   it("merges with existing JSON and writes backups before updating", () => {
@@ -138,6 +167,8 @@ describe("Cimux install plan", () => {
     );
 
     expect(secondRun.map((result) => result.status)).toEqual([
+      "unchanged",
+      "unchanged",
       "unchanged",
       "unchanged",
       "unchanged",
