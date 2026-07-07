@@ -29,7 +29,7 @@ export type {
 export type {
   RegisterMailboxInput,
   RegisterMailboxResult
-} from "./registration/mailbox-registration.js";
+} from "./naming/mailbox-naming.js";
 
 export {
   ackStateSchema,
@@ -72,10 +72,10 @@ export {
   defaultDatabasePath,
   runCimuxMcpServer
 } from "./mcp/cimux-mcp-server.js";
-export { resolveRuntimeMailbox } from "./runtime/mailbox-runtime.js";
 export {
   inferMailboxName,
+  registerMailbox,
   registerMailboxInputSchema,
-  registerMailbox
-} from "./registration/mailbox-registration.js";
+  resolveRuntimeMailbox
+} from "./naming/mailbox-naming.js";
 export { SQLiteCimuxStore, UnknownMailboxError } from "./storage/sqlite-cimux-store.js";

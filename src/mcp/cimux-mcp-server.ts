@@ -4,7 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { createContextPackageInputSchema } from "../model/context-package.js";
-import { registerMailboxInputSchema } from "../registration/mailbox-registration.js";
+import { registerMailboxInputSchema } from "../naming/mailbox-naming.js";
 import {
   ackContext,
   ackContextInputSchema,
