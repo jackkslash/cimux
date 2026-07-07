@@ -1,9 +1,3 @@
-#!/usr/bin/env node
-import fs from "node:fs";
-import { fileURLToPath } from "node:url";
-import { runCimuxCli } from "./cli/cimux-cli.js";
-import { name } from "./version.js";
-
 export { name, version } from "./version.js";
 
 export function getProjectStage(): string {
@@ -85,25 +79,3 @@ export {
   registerMailbox
 } from "./registration/mailbox-registration.js";
 export { SQLiteCimuxStore, UnknownMailboxError } from "./storage/sqlite-cimux-store.js";
-
-if (isCliEntrypoint()) {
-  process.exitCode = await runCimuxCli(process.argv.slice(2));
-}
-
-export function isCliEntrypoint(
-  argvPath = process.argv[1],
-  modulePath = fileURLToPath(import.meta.url)
-): boolean {
-  if (!argvPath) {
-    return false;
-  }
-
-  // npm link and global installs usually invoke the bin through a symlink.
-  // Compare real paths so the published command still reaches runCimuxCli.
-  try {
-    return fs.realpathSync(argvPath) === fs.realpathSync(modulePath);
-  } catch {
-    // argv[1] may not be a resolvable path when embedded or bundled.
-    return false;
-  }
-}
