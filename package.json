@@ -21,7 +21,7 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "cimux": "./dist/index.js"
+    "cimux": "./dist/bin.js"
   },
   "files": [
     "dist",
