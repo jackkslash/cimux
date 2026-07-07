@@ -1,30 +1,32 @@
+import { parseArgs } from "node:util";
+import { ZodError } from "zod";
 import { name, version } from "../version.js";
-import { runAckCommand } from "./commands/ack.js";
-import { runBriefCommand } from "./commands/brief.js";
-import { runCheckCommand } from "./commands/check.js";
-import { runInstallCommand } from "./commands/install.js";
-import { runMailboxesCommand } from "./commands/mailboxes.js";
-import { runMcpCommand } from "./commands/mcp.js";
-import { runNotifyCommand } from "./commands/notify.js";
-import { runReadCommand } from "./commands/read.js";
-import { runRegisterCommand } from "./commands/register.js";
-import { runSendCommand } from "./commands/send.js";
-import type { CimuxCliEnv, CimuxCliIo, CommandContext } from "./shared.js";
+import { ackCommand } from "./commands/ack.js";
+import { briefCommand } from "./commands/brief.js";
+import { checkCommand } from "./commands/check.js";
+import { installCommand } from "./commands/install.js";
+import { mailboxesCommand } from "./commands/mailboxes.js";
+import { mcpCommand } from "./commands/mcp.js";
+import { notifyCommand } from "./commands/notify.js";
+import { readCommand } from "./commands/read.js";
+import { registerCommand } from "./commands/register.js";
+import { sendCommand } from "./commands/send.js";
+import type { CimuxCliEnv, CimuxCliIo, CommandSpec, ParsedValues } from "./shared.js";
 
 export type { CimuxCliEnv, CimuxCliIo } from "./shared.js";
 
-const commands: Record<string, (context: CommandContext) => number | Promise<number>> = {
-  mcp: runMcpCommand,
-  notify: runNotifyCommand,
-  brief: runBriefCommand,
-  mailboxes: runMailboxesCommand,
-  install: runInstallCommand,
-  register: runRegisterCommand,
-  send: runSendCommand,
-  check: runCheckCommand,
-  read: runReadCommand,
-  ack: runAckCommand
-};
+const commands: CommandSpec[] = [
+  mcpCommand,
+  installCommand,
+  notifyCommand,
+  briefCommand,
+  registerCommand,
+  mailboxesCommand,
+  sendCommand,
+  checkCommand,
+  readCommand,
+  ackCommand
+];
 
 export async function runCimuxCli(
   argv: string[],
@@ -34,25 +36,53 @@ export async function runCimuxCli(
 ): Promise<number> {
   const command = argv[0];
 
+  if (!command || command === "help" || command === "--help" || command === "-h") {
+    io.log(usage());
+    return 0;
+  }
+
+  if (command === "version" || command === "--version" || command === "-v") {
+    io.log(`${name} ${version}`);
+    return 0;
+  }
+
+  const spec = commands.find((candidate) => candidate.name === command);
+  if (!spec) {
+    io.error(`Unknown command: ${command}`);
+    io.error("");
+    io.error(usage());
+    return 1;
+  }
+
+  let values: ParsedValues;
   try {
-    if (!command || command === "help" || command === "--help" || command === "-h") {
-      io.log(usage());
-      return 0;
-    }
+    // strict mode rejects unknown flags and flags missing their value, so
+    // typos fail loudly instead of being silently swallowed.
+    values = parseArgs({
+      args: argv.slice(1),
+      options: spec.options,
+      strict: true,
+      allowPositionals: false
+    }).values as ParsedValues;
+  } catch (error) {
+    io.error(error instanceof Error ? error.message : String(error));
+    io.error(`Usage: ${spec.usage}`);
+    return 1;
+  }
 
-    if (command === "version" || command === "--version" || command === "-v") {
-      io.log(`${name} ${version}`);
-      return 0;
-    }
-
-    const run = commands[command];
-    if (!run) {
-      io.error(usage());
+  try {
+    return await spec.run({ values, env, cwd, io });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      io.error("Invalid input:");
+      for (const issue of error.issues) {
+        const flag = issue.path.length > 0 ? `--${issue.path.join(".")}` : "input";
+        io.error(`  ${flag}: ${issue.message}`);
+      }
+      io.error(`Usage: ${spec.usage}`);
       return 1;
     }
 
-    return await run({ argv, env, cwd, io });
-  } catch (error) {
     io.error(error instanceof Error ? error.message : String(error));
     return 1;
   }
@@ -65,16 +95,7 @@ function usage(): string {
     "Local-first mailboxes for intentional AI agent context handoffs.",
     "",
     "Usage:",
-    "  cimux mcp",
-    "  cimux install [--dry-run]",
-    "  cimux notify [--mailbox <harness/name> | --harness <name>]",
-    "  cimux brief [--mailbox <harness/name> | --harness <name>]",
-    "  cimux register [--mailbox <harness/name> | --harness <name>]",
-    "  cimux mailboxes",
-    "  cimux send --from <mailbox> --to <mailbox> --title <title> --summary <summary> --body <body> [--tags a,b]",
-    "  cimux check --mailbox <harness/name> [--all]",
-    "  cimux read --mailbox <harness/name> --id <context-id>",
-    "  cimux ack --mailbox <harness/name> --id <context-id> [--note <note>]",
+    ...commands.map((spec) => `  ${spec.usage}`),
     "",
     "Examples:",
     "  cimux install --dry-run",

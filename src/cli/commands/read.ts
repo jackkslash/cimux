@@ -1,14 +1,22 @@
 import { readContext } from "../../service/cimux-mailbox-service.js";
-import { requireArg, withStore, writeJson } from "../shared.js";
-import type { CommandContext } from "../shared.js";
+import { requireString, withStore, writeJson } from "../shared.js";
+import type { CommandSpec } from "../shared.js";
 
-export async function runReadCommand(context: CommandContext): Promise<number> {
-  return withStore(context.env, async (store) => {
-    const result = await readContext(store, {
-      mailbox: requireArg(context.argv, "--mailbox"),
-      id: requireArg(context.argv, "--id")
+export const readCommand: CommandSpec = {
+  name: "read",
+  usage: "cimux read --mailbox <harness/name> --id <context-id>",
+  options: {
+    mailbox: { type: "string" },
+    id: { type: "string" }
+  },
+  run(context) {
+    return withStore(context.env, async (store) => {
+      const result = await readContext(store, {
+        mailbox: requireString(context.values, "mailbox"),
+        id: requireString(context.values, "id")
+      });
+      writeJson(context.io, result);
+      return 0;
     });
-    writeJson(context.io, result);
-    return 0;
-  });
-}
+  }
+};

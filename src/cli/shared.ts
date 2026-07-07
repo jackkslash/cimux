@@ -15,12 +15,24 @@ export type CimuxCliEnv = {
   CIMUX_HARNESS?: string;
 };
 
+// Flag values as produced by node:util parseArgs (no multiples configured).
+export type ParsedValues = Record<string, string | boolean | undefined>;
+
 // Everything a command needs, so command modules share one signature.
 export type CommandContext = {
-  argv: string[];
+  values: ParsedValues;
   env: CimuxCliEnv;
   cwd: string;
   io: CimuxCliIo;
+};
+
+// Each command declares its flags once; parsing, strict unknown-flag
+// errors, and the usage listing are all derived from this.
+export type CommandSpec = {
+  name: string;
+  usage: string;
+  options: Record<string, { type: "string" | "boolean" }>;
+  run(context: CommandContext): number | Promise<number>;
 };
 
 export async function withStore(
@@ -38,8 +50,8 @@ export async function withStore(
 export function resolveRuntimeMailboxFromArgs(
   context: CommandContext
 ): RuntimeMailboxResult {
-  const explicitMailbox = readArg(context.argv, "--mailbox") ?? context.env.CIMUX_MAILBOX;
-  const harness = readArg(context.argv, "--harness") ?? context.env.CIMUX_HARNESS;
+  const explicitMailbox = readString(context.values, "mailbox") ?? context.env.CIMUX_MAILBOX;
+  const harness = readString(context.values, "harness") ?? context.env.CIMUX_HARNESS;
   if (!explicitMailbox && !harness) {
     throw new Error("Expected --mailbox <harness/name> or --harness <name>");
   }
@@ -58,27 +70,22 @@ export function resolvePackageCommand(): string {
   return binPath && path.isAbsolute(binPath) ? binPath : "cimux";
 }
 
-export function readArg(argv: string[], name: string): string | undefined {
-  const exact = argv.indexOf(name);
-  if (exact >= 0) {
-    return argv[exact + 1];
-  }
-
-  const prefixed = argv.find((arg) => arg.startsWith(`${name}=`));
-  return prefixed?.slice(name.length + 1);
+export function readString(values: ParsedValues, name: string): string | undefined {
+  const value = values[name];
+  return typeof value === "string" && value !== "" ? value : undefined;
 }
 
-export function requireArg(argv: string[], name: string): string {
-  const value = readArg(argv, name);
-  if (!value) {
-    throw new Error(`Expected ${name}`);
+export function requireString(values: ParsedValues, name: string): string {
+  const value = readString(values, name);
+  if (value === undefined) {
+    throw new Error(`Expected --${name}`);
   }
 
   return value;
 }
 
-export function readCsvArg(argv: string[], name: string): string[] {
-  const value = readArg(argv, name);
+export function readCsv(values: ParsedValues, name: string): string[] {
+  const value = readString(values, name);
   if (!value) {
     return [];
   }
@@ -87,6 +94,19 @@ export function readCsvArg(argv: string[], name: string): string[] {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+export function readJson(values: ParsedValues, name: string): unknown {
+  const value = readString(values, name);
+  if (value === undefined) {
+    return undefined;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    throw new Error(`Invalid JSON for --${name}`);
+  }
 }
 
 export function writeJson(io: CimuxCliIo, value: unknown): void {
