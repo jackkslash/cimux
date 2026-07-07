@@ -15,7 +15,7 @@ import {
   registerMailbox,
   type RegisterMailboxInput,
   type RegisterMailboxResult
-} from "../registration/mailbox-registration.js";
+} from "../naming/mailbox-naming.js";
 import type { ContextPackageStore, MailboxStore } from "../storage/mailbox-store.js";
 
 export const checkInboxInputSchema = z.object({
