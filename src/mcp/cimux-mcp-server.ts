@@ -10,6 +10,7 @@ import {
   ackContextInputSchema,
   checkInbox,
   checkInboxInputSchema,
+  listMailboxes,
   readContext,
   readContextInputSchema,
   registerSession,
@@ -34,6 +35,23 @@ export function createCimuxMcpServer(databasePath = defaultDatabasePath()): McpS
       inputSchema: registerMailboxInputSchema.shape
     },
     async (input) => toToolResult(await registerSession(store, input))
+  );
+
+  server.registerTool(
+    "list_mailboxes",
+    {
+      title: "List Mailboxes",
+      description:
+        "List registered mailbox names. Use this to find the recipient before send_context.",
+      inputSchema: {}
+    },
+    async () => {
+      // Names only: this response is read by agents, so keep it token-lean.
+      const result = await listMailboxes(store);
+      return toToolResult({
+        mailboxes: result.mailboxes.map((mailbox) => mailbox.name)
+      });
+    }
   );
 
   server.registerTool(

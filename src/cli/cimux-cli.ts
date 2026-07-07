@@ -6,6 +6,8 @@ import {
   ackContext,
   checkInbox,
   createInboxNotification,
+  createSessionBrief,
+  listMailboxes,
   readContext,
   registerSession,
   sendContext
@@ -50,6 +52,17 @@ export async function runCimuxCli(
 
     if (command === "notify") {
       return await runNotifyCommand(argv, env, cwd, io);
+    }
+
+    if (command === "brief") {
+      return await runBriefCommand(argv, env, cwd, io);
+    }
+
+    if (command === "mailboxes") {
+      return await withStore(env, async (store) => {
+        writeJson(io, await listMailboxes(store));
+        return 0;
+      });
     }
 
     if (command === "install") {
@@ -149,6 +162,24 @@ async function runNotifyCommand(
     if (result.message) {
       io.log(result.message);
     }
+    return 0;
+  });
+}
+
+async function runBriefCommand(
+  argv: string[],
+  env: CimuxCliEnv,
+  cwd: string,
+  io: CimuxCliIo
+): Promise<number> {
+  return withStore(env, async (store) => {
+    const { mailbox } = resolveRuntimeMailboxFromArgs(argv, env, cwd);
+
+    // Runs from a SessionStart hook: register the session's mailbox, then
+    // print the norms so agents use Cimux without being prompted.
+    await store.createMailbox(mailbox);
+    const result = await createSessionBrief(store, { mailbox });
+    io.log(result.message);
     return 0;
   });
 }
@@ -254,7 +285,9 @@ function usage(): string {
     "  cimux mcp",
     "  cimux install [--dry-run]",
     "  cimux notify [--mailbox <harness/name> | --harness <name>]",
+    "  cimux brief [--mailbox <harness/name> | --harness <name>]",
     "  cimux register [--mailbox <harness/name> | --harness <name>]",
+    "  cimux mailboxes",
     "  cimux send --from <mailbox> --to <mailbox> --title <title> --summary <summary> --body <body> [--tags a,b]",
     "  cimux check --mailbox <harness/name> [--all]",
     "  cimux read --mailbox <harness/name> --id <context-id>",

@@ -64,6 +64,8 @@ export {
   checkInbox,
   ContextPackageNotFoundError,
   createInboxNotification,
+  createSessionBrief,
+  listMailboxes,
   MailboxAccessError,
   readContext,
   registerSession,
