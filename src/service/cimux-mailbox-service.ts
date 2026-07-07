@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   contextPackageSchema,
   createContextPackageInputSchema,
+  MAX_INBOX_PREVIEW_LIMIT,
   mailboxNameSchema
 } from "../model/context-package.js";
 import type {
@@ -21,7 +22,9 @@ import type { ContextPackageStore, MailboxStore } from "../storage/mailbox-store
 export const checkInboxInputSchema = z.object({
   mailbox: mailboxNameSchema,
   unreadOnly: z.boolean().default(true),
-  limit: z.number().int().positive().optional()
+  // Capped at the schema so callers see the limit in the MCP tool contract
+  // instead of being silently clamped by the storage layer.
+  limit: z.number().int().positive().max(MAX_INBOX_PREVIEW_LIMIT).optional()
 });
 
 export const readContextInputSchema = z.object({

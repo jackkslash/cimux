@@ -110,6 +110,136 @@ describe("Cimux CLI", () => {
     expect(result.code).toBe(1);
     expect(result.stderr).toContain("Expected --mailbox");
   });
+
+  it("rejects unknown flags instead of silently ignoring them", async () => {
+    const result = await runCli(["check", "--mailbox", "claude/x", "--unknown-flag"]);
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("--unknown-flag");
+    expect(result.stderr).toContain("Usage: cimux check");
+  });
+
+  it("does not eat a following flag as a missing value", async () => {
+    const result = await runCli([
+      "send",
+      "--from",
+      "codex/a",
+      "--title",
+      "--summary",
+      "oops"
+    ]);
+
+    // --title has no value; parseArgs must not consume --summary as one.
+    expect(result.code).toBe(1);
+    expect(result.stderr).not.toContain('"--summary"');
+  });
+
+  it("formats validation errors as one line per issue", async () => {
+    const result = await runCli([
+      "send",
+      "--from",
+      "not-a-mailbox-name",
+      "--to",
+      "claude/frontend-login",
+      "--title",
+      "t",
+      "--summary",
+      "s",
+      "--body",
+      "b"
+    ]);
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("Invalid input:");
+    expect(result.stderr).toContain("--fromMailbox");
+    expect(result.stderr).not.toContain('"code"');
+  });
+
+  it("sends artifacts and payload from JSON flags", async () => {
+    await runCli(["register", "--mailbox", "codex/backend-auth"]);
+    await runCli(["register", "--mailbox", "claude/frontend-login"]);
+
+    const sent = await runCli([
+      "send",
+      "--from",
+      "codex/backend-auth",
+      "--to",
+      "claude/frontend-login",
+      "--title",
+      "With artifacts",
+      "--summary",
+      "s",
+      "--body",
+      "b",
+      "--artifacts-json",
+      '{"files":[{"path":"src/auth.ts","note":"start here"}]}',
+      "--payload-json",
+      '{"ticket":"AUTH-42"}'
+    ]);
+    const sentJson = JSON.parse(sent.stdout) as {
+      contextPackage: {
+        artifacts: { files: Array<{ path: string }> };
+        payload: Record<string, unknown>;
+      };
+    };
+
+    expect(sent.code).toBe(0);
+    expect(sentJson.contextPackage.artifacts.files[0]?.path).toBe("src/auth.ts");
+    expect(sentJson.contextPackage.payload).toEqual({ ticket: "AUTH-42" });
+  });
+
+  it("rejects malformed JSON flags with a clear message", async () => {
+    const result = await runCli([
+      "send",
+      "--from",
+      "codex/backend-auth",
+      "--to",
+      "claude/frontend-login",
+      "--title",
+      "t",
+      "--summary",
+      "s",
+      "--body",
+      "b",
+      "--artifacts-json",
+      "{not json"
+    ]);
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("Invalid JSON for --artifacts-json");
+  });
+
+  it("applies --limit to check", async () => {
+    await runCli(["register", "--mailbox", "codex/backend-auth"]);
+    await runCli(["register", "--mailbox", "claude/frontend-login"]);
+    for (const title of ["one", "two", "three"]) {
+      await runCli([
+        "send",
+        "--from",
+        "codex/backend-auth",
+        "--to",
+        "claude/frontend-login",
+        "--title",
+        title,
+        "--summary",
+        "s",
+        "--body",
+        "b"
+      ]);
+    }
+
+    const checked = await runCli([
+      "check",
+      "--mailbox",
+      "claude/frontend-login",
+      "--limit",
+      "2"
+    ]);
+    const checkJson = JSON.parse(checked.stdout) as { previews: unknown[] };
+
+    expect(checked.code).toBe(0);
+    expect(checkJson.previews).toHaveLength(2);
+  });
 });
 
 async function runCli(argv: string[]) {

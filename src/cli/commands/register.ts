@@ -1,25 +1,34 @@
 import { registerSession } from "../../service/cimux-mailbox-service.js";
 import {
-  readArg,
+  readString,
   resolveRuntimeMailboxFromArgs,
   withStore,
   writeJson
 } from "../shared.js";
-import type { CommandContext } from "../shared.js";
+import type { CommandSpec } from "../shared.js";
 
-export async function runRegisterCommand(context: CommandContext): Promise<number> {
-  return withStore(context.env, async (store) => {
-    const mailbox = resolveRuntimeMailboxFromArgs(context);
-    const result = await registerSession(store, {
-      harness: readArg(context.argv, "--harness") ?? context.env.CIMUX_HARNESS ?? "codex",
-      ...(mailbox.inferredFrom === "explicit"
-        ? { explicitMailbox: mailbox.mailbox }
-        : {
-            branchName: mailbox.branchName ?? undefined,
-            folderName: mailbox.folderName
-          })
+export const registerCommand: CommandSpec = {
+  name: "register",
+  usage: "cimux register [--mailbox <harness/name> | --harness <name>]",
+  options: {
+    mailbox: { type: "string" },
+    harness: { type: "string" }
+  },
+  run(context) {
+    return withStore(context.env, async (store) => {
+      const mailbox = resolveRuntimeMailboxFromArgs(context);
+      const result = await registerSession(store, {
+        harness:
+          readString(context.values, "harness") ?? context.env.CIMUX_HARNESS ?? "codex",
+        ...(mailbox.inferredFrom === "explicit"
+          ? { explicitMailbox: mailbox.mailbox }
+          : {
+              branchName: mailbox.branchName ?? undefined,
+              folderName: mailbox.folderName
+            })
+      });
+      writeJson(context.io, result);
+      return 0;
     });
-    writeJson(context.io, result);
-    return 0;
-  });
-}
+  }
+};

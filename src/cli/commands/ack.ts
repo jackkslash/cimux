@@ -1,16 +1,25 @@
 import { ackContext } from "../../service/cimux-mailbox-service.js";
-import { readArg, requireArg, withStore, writeJson } from "../shared.js";
-import type { CommandContext } from "../shared.js";
+import { readString, requireString, withStore, writeJson } from "../shared.js";
+import type { CommandSpec } from "../shared.js";
 
-export async function runAckCommand(context: CommandContext): Promise<number> {
-  return withStore(context.env, async (store) => {
-    const note = readArg(context.argv, "--note");
-    const result = await ackContext(store, {
-      mailbox: requireArg(context.argv, "--mailbox"),
-      id: requireArg(context.argv, "--id"),
-      ...(note === undefined ? {} : { note })
+export const ackCommand: CommandSpec = {
+  name: "ack",
+  usage: "cimux ack --mailbox <harness/name> --id <context-id> [--note <note>]",
+  options: {
+    mailbox: { type: "string" },
+    id: { type: "string" },
+    note: { type: "string" }
+  },
+  run(context) {
+    return withStore(context.env, async (store) => {
+      const note = readString(context.values, "note");
+      const result = await ackContext(store, {
+        mailbox: requireString(context.values, "mailbox"),
+        id: requireString(context.values, "id"),
+        ...(note === undefined ? {} : { note })
+      });
+      writeJson(context.io, result);
+      return 0;
     });
-    writeJson(context.io, result);
-    return 0;
-  });
-}
+  }
+};

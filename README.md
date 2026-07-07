@@ -104,10 +104,11 @@ cimux send \
   --title "Auth handoff" \
   --summary "Frontend should handle the new auth error." \
   --body "validateSession now throws ExpiredSessionError." \
-  --tags auth,frontend
+  --tags auth,frontend \
+  --artifacts-json '{"files":[{"path":"src/auth/session.ts"}]}'
 
 cimux notify --mailbox claude/frontend-login
-cimux check --mailbox claude/frontend-login
+cimux check --mailbox claude/frontend-login --limit 5
 cimux read --mailbox claude/frontend-login --id <context-id>
 cimux ack --mailbox claude/frontend-login --id <context-id> --note "Loaded."
 ```
