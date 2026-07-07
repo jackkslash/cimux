@@ -7,6 +7,8 @@ import {
   checkInbox,
   ContextPackageNotFoundError,
   createInboxNotification,
+  createSessionBrief,
+  listMailboxes,
   MailboxAccessError,
   readContext,
   registerSession,
@@ -181,5 +183,51 @@ describe("Cimux mailbox service", () => {
     expect(notification.message).not.toContain("FULL_BODY");
     expect(notification.message).not.toContain("SECRET_SNIPPET");
     expect(notification.message).not.toContain("SECRET_PAYLOAD");
+  });
+
+  it("briefs a session on its mailbox and the handoff norms", async () => {
+    await store.createMailbox("claude/frontend-login");
+
+    const brief = await createSessionBrief(store, {
+      mailbox: "claude/frontend-login"
+    });
+
+    expect(brief.message).toContain("Cimux mailbox: claude/frontend-login");
+    expect(brief.message).toContain("no unread mail");
+    expect(brief.message).toContain("send_context");
+  });
+
+  it("includes the unread count in the session brief without message content", async () => {
+    await store.createMailbox("codex/backend-auth");
+    await store.createMailbox("claude/frontend-login");
+    await sendContext(store, {
+      fromMailbox: "codex/backend-auth",
+      toMailbox: "claude/frontend-login",
+      title: "Auth handoff",
+      summary: "Frontend needs context.",
+      body: "FULL_BODY_SHOULD_NOT_BE_IN_THE_BRIEF",
+      tags: [],
+      artifacts: {},
+      payload: {}
+    });
+
+    const brief = await createSessionBrief(store, {
+      mailbox: "claude/frontend-login"
+    });
+
+    expect(brief.message).toContain("1 unread");
+    expect(brief.message).not.toContain("FULL_BODY");
+  });
+
+  it("lists registered mailboxes", async () => {
+    await store.createMailbox("codex/backend-auth");
+    await store.createMailbox("claude/frontend-login");
+
+    const result = await listMailboxes(store);
+
+    expect(result.mailboxes.map((mailbox) => mailbox.name)).toEqual([
+      "claude/frontend-login",
+      "codex/backend-auth"
+    ]);
   });
 });

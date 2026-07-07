@@ -38,11 +38,16 @@ export const inboxNotificationInputSchema = z.object({
   limit: z.number().int().positive().max(10).default(10)
 });
 
+export const sessionBriefInputSchema = z.object({
+  mailbox: mailboxNameSchema
+});
+
 export type CimuxStore = MailboxStore & ContextPackageStore;
 export type CheckInboxInput = z.input<typeof checkInboxInputSchema>;
 export type ReadContextInput = z.input<typeof readContextInputSchema>;
 export type AckContextInput = z.input<typeof ackContextInputSchema>;
 export type InboxNotificationInput = z.input<typeof inboxNotificationInputSchema>;
+export type SessionBriefInput = z.input<typeof sessionBriefInputSchema>;
 
 export type SendContextResult = {
   contextPackage: ContextPackage;
@@ -63,6 +68,14 @@ export type AckContextResult = {
 
 export type InboxNotificationResult = {
   message: string | null;
+};
+
+export type SessionBriefResult = {
+  message: string;
+};
+
+export type ListMailboxesResult = {
+  mailboxes: Mailbox[];
 };
 
 export class MailboxAccessError extends Error {
@@ -184,6 +197,35 @@ export async function createInboxNotification(
   return {
     message: `Cimux: ${previews.length} unread context package(s) for ${parsed.mailbox} from ${senderText}${suffix}. Call check_inbox to preview.`
   };
+}
+
+export async function createSessionBrief(
+  store: CimuxStore,
+  input: SessionBriefInput
+): Promise<SessionBriefResult> {
+  const parsed = sessionBriefInputSchema.parse(input);
+  const previews = await store.listInboxPreviews(parsed.mailbox, {
+    unreadOnly: true,
+    limit: 10
+  });
+
+  const unread =
+    previews.length === 0
+      ? "no unread mail"
+      : `${previews.length} unread — call check_inbox before starting`;
+
+  // Injected at session start so agents send handoffs without being asked.
+  // Keep it short: this costs tokens in every session.
+  return {
+    message: [
+      `Cimux mailbox: ${parsed.mailbox} (${unread}).`,
+      "When you finish work another agent or session may need, send a handoff with send_context. Ack packages after loading them."
+    ].join("\n")
+  };
+}
+
+export async function listMailboxes(store: MailboxStore): Promise<ListMailboxesResult> {
+  return { mailboxes: await store.listMailboxes() };
 }
 
 async function assertPackageBelongsToMailbox(
