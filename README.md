@@ -32,7 +32,7 @@ The receiver's context stays clean until the moment the handoff actually matters
 - **Token discipline.** A shared markdown file gets pasted into sessions whole. Cimux previews keep each unread handoff to a ~40-token summary until an agent decides to read it — bodies, code snippets, and payloads never enter context uninvited.
 - **Delivery state.** Files can't tell you whether the other agent ever saw the note. Every Context Package tracks read and acknowledged state (first write wins, safe across concurrent processes), so a handoff is a receipt, not a hope.
 - **Addressing.** Mailboxes are per harness and workstream (`codex/backend-auth`), inferred automatically from the git branch — parallel agents don't trample one shared document.
-- **Cross-harness, repo-clean.** Works between Claude Code and Codex (app or CLI) through one local SQLite database in `~/.cimux/` — nothing gets committed to your repo.
+- **Cross-harness, repo-clean.** Works between Claude Code, Codex (app or CLI), and Cursor through one local SQLite database in `~/.cimux/` — nothing gets committed to your repo.
 
 The product idea is intentionally small:
 
@@ -78,15 +78,18 @@ cimux install --dry-run
 cimux install
 ```
 
-`cimux install` writes, for each harness it supports:
+`cimux install` detects which harnesses are on your machine and writes config only for those (`--harness <name>` for one, `--all` for every supported harness):
 
-| | Claude Code | Codex (app or CLI) |
-| --- | --- | --- |
-| MCP server | `~/.claude.json` | `~/.codex/config.toml` |
-| Hooks (notify + session brief) | `~/.claude/settings.json` | `~/.codex/hooks.json` |
-| Agent norms | `~/.claude/CLAUDE.md` | `~/.codex/AGENTS.md` |
+| | Claude Code | Codex (app or CLI) | Cursor |
+| --- | --- | --- | --- |
+| MCP server | `~/.claude.json` | `~/.codex/config.toml` | `~/.cursor/mcp.json` |
+| Hooks | notify + brief, `~/.claude/settings.json` | notify + brief, `~/.codex/hooks.json` | session brief, `~/.cursor/hooks.json` |
+| Agent norms | `~/.claude/CLAUDE.md` | `~/.codex/AGENTS.md` | — (via session brief) |
 
-Codex asks you to trust the hooks once (and again after any change to them) — that's Codex's own safety prompt, expected behavior.
+Harness notes:
+
+- Codex asks you to trust the hooks once (and again after any change to them) — that's Codex's own safety prompt, expected behavior.
+- Cursor has no context-injecting per-prompt hook, so agents get the mailbox briefing (including unread count) at session start rather than a notification on every prompt. Cursor keeps user-level rules in its settings GUI, so the handoff norms travel in the brief instead of a rules file.
 
 ## Install Locally
 
