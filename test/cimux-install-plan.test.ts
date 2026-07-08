@@ -199,6 +199,87 @@ describe("Cimux install plan", () => {
     expect(fs.readFileSync(`${settingsPath}.cimux.bak`, "utf8")).toContain("existing-hook");
   });
 
+  it("replaces its own hook entries when the binary path changes", () => {
+    const hooksPath = path.join(tempDir, ".cursor", "hooks.json");
+    fs.mkdirSync(path.dirname(hooksPath), { recursive: true });
+    fs.writeFileSync(
+      hooksPath,
+      JSON.stringify(
+        {
+          version: 1,
+          hooks: {
+            sessionStart: [
+              { command: "/old/path/dist/bin.js brief --harness cursor --format cursor" },
+              { command: "my-own-hook.sh" }
+            ]
+          }
+        },
+        null,
+        2
+      ) + "\n"
+    );
+
+    applyInstallPlan(
+      createInstallPlan({
+        homeDirectory: tempDir,
+        packageCommand: "/new/path/cimux",
+        harnesses: ["cursor"]
+      })
+    );
+    const hooks = JSON.parse(fs.readFileSync(hooksPath, "utf8")) as {
+      hooks: { sessionStart: Array<{ command: string }> };
+    };
+    const commands = hooks.hooks.sessionStart.map((entry) => entry.command);
+
+    expect(commands).toEqual([
+      "/new/path/cimux brief --harness cursor --format cursor",
+      "my-own-hook.sh"
+    ]);
+  });
+
+  it("refreshes the codex TOML command when the binary path changes", () => {
+    const configPath = path.join(tempDir, ".codex", "config.toml");
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    fs.writeFileSync(
+      configPath,
+      [
+        "[mcp_servers.other]",
+        'command = "other-tool"',
+        "",
+        "[mcp_servers.cimux]",
+        'command = "/old/path/cimux"',
+        'args = ["mcp"]',
+        "startup_timeout_sec = 99",
+        ""
+      ].join("\n")
+    );
+
+    const results = applyInstallPlan(
+      createInstallPlan({
+        homeDirectory: tempDir,
+        packageCommand: "/new/path/cimux",
+        harnesses: ["codex"]
+      })
+    );
+    const config = fs.readFileSync(configPath, "utf8");
+
+    expect(config).toContain('command = "/new/path/cimux"');
+    expect(config).toContain("startup_timeout_sec = 99");
+    expect(config).toContain('command = "other-tool"');
+    expect(results.find((result) => result.path === configPath)?.status).toBe("updated");
+
+    const secondRun = applyInstallPlan(
+      createInstallPlan({
+        homeDirectory: tempDir,
+        packageCommand: "/new/path/cimux",
+        harnesses: ["codex"]
+      })
+    );
+    expect(secondRun.find((result) => result.path === configPath)?.status).toBe(
+      "unchanged"
+    );
+  });
+
   it("does not duplicate install snippets when applying twice", () => {
     const plan = createInstallPlan({
       homeDirectory: tempDir,
