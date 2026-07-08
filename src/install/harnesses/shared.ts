@@ -1,4 +1,4 @@
-export const SUPPORTED_HARNESSES = ["codex", "claude"] as const;
+export const SUPPORTED_HARNESSES = ["codex", "claude", "cursor"] as const;
 
 export type HarnessName = (typeof SUPPORTED_HARNESSES)[number];
 
@@ -18,6 +18,7 @@ export type HarnessDescriptor = {
   };
   hooks?: {
     path: string;
+    purpose?: string;
     snippet?: (packageCommand: string, harness: HarnessName) => string;
   };
   norms?: {

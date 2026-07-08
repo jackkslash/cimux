@@ -71,7 +71,7 @@ function createHarnessTargets(
     targets.push({
       harness: descriptor.name,
       path: path.join(homeDirectory, descriptor.hooks.path),
-      purpose: HOOKS_PURPOSE,
+      purpose: descriptor.hooks.purpose ?? HOOKS_PURPOSE,
       format: "json",
       snippet: snippet(packageCommand, descriptor.name)
     });

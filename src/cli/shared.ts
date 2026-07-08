@@ -13,6 +13,8 @@ export type CimuxCliEnv = {
   CIMUX_DB_PATH?: string;
   CIMUX_MAILBOX?: string;
   CIMUX_HARNESS?: string;
+  CURSOR_PROJECT_DIR?: string;
+  CLAUDE_PROJECT_DIR?: string;
 };
 
 // Flag values as produced by node:util parseArgs (no multiples configured).
@@ -56,10 +58,15 @@ export function resolveRuntimeMailboxFromArgs(
     throw new Error("Expected --mailbox <harness/name> or --harness <name>");
   }
 
+  // Some harnesses (Cursor) run hooks from their own directory, not the
+  // workspace, and pass the real project location through the environment.
+  const cwd =
+    context.env.CURSOR_PROJECT_DIR ?? context.env.CLAUDE_PROJECT_DIR ?? context.cwd;
+
   return resolveRuntimeMailbox({
     ...(explicitMailbox === undefined ? {} : { explicitMailbox }),
     ...(harness === undefined ? {} : { harness }),
-    cwd: context.cwd
+    cwd
   });
 }
 

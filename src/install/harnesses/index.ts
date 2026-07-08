@@ -3,9 +3,14 @@ import os from "node:os";
 import path from "node:path";
 import { claudeHarness } from "./claude.js";
 import { codexHarness } from "./codex.js";
+import { cursorHarness } from "./cursor.js";
 import type { HarnessDescriptor, HarnessName } from "./shared.js";
 
-export const HARNESS_DESCRIPTORS: HarnessDescriptor[] = [codexHarness, claudeHarness];
+export const HARNESS_DESCRIPTORS: HarnessDescriptor[] = [
+  codexHarness,
+  claudeHarness,
+  cursorHarness
+];
 
 export {
   AGENT_NORMS_MARKER,
