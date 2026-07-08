@@ -2,7 +2,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { applyInstallPlan, createInstallPlan } from "../src/index.js";
+import {
+  applyInstallPlan,
+  createInstallPlan,
+  detectInstalledHarnesses
+} from "../src/index.js";
 
 let tempDir: string;
 
@@ -25,10 +29,34 @@ describe("Cimux install plan", () => {
       "/Users/example/.codex/config.toml",
       "/Users/example/.codex/hooks.json",
       "/Users/example/.codex/AGENTS.md",
+      "/Users/example/.claude.json",
       "/Users/example/.claude/settings.json",
-      "/Users/example/.claude/CLAUDE.md",
-      "/Users/example/.claude.json"
+      "/Users/example/.claude/CLAUDE.md"
     ]);
+  });
+
+  it("plans only the requested harnesses", () => {
+    const plan = createInstallPlan({
+      homeDirectory: "/Users/example",
+      packageCommand: "cimux",
+      harnesses: ["claude"]
+    });
+
+    expect(plan.targets.map((target) => target.path)).toEqual([
+      "/Users/example/.claude.json",
+      "/Users/example/.claude/settings.json",
+      "/Users/example/.claude/CLAUDE.md"
+    ]);
+  });
+
+  it("detects installed harnesses by their home directories", () => {
+    expect(detectInstalledHarnesses(tempDir)).toEqual([]);
+
+    fs.mkdirSync(path.join(tempDir, ".codex"));
+    expect(detectInstalledHarnesses(tempDir)).toEqual(["codex"]);
+
+    fs.mkdirSync(path.join(tempDir, ".claude"));
+    expect(detectInstalledHarnesses(tempDir)).toEqual(["codex", "claude"]);
   });
 
   it("uses inferred mailbox hook commands so users do not name sessions by hand", () => {
@@ -54,8 +82,8 @@ describe("Cimux install plan", () => {
     expect(plan.targets[0]?.snippet).toContain("[mcp_servers.cimux]");
     expect(plan.targets[0]?.snippet).toContain('command = "cimux"');
     expect(plan.targets[0]?.snippet).toContain('args = ["mcp"]');
-    expect(plan.targets[5]?.snippet).toContain('"mcpServers"');
-    expect(plan.targets[5]?.snippet).toContain('"args": [\n        "mcp"\n      ]');
+    expect(plan.targets[3]?.snippet).toContain('"mcpServers"');
+    expect(plan.targets[3]?.snippet).toContain('"args": [\n        "mcp"\n      ]');
   });
 
   it("creates missing config files when applying the install plan", () => {

@@ -68,6 +68,11 @@ export {
 export { runCimuxCli } from "./cli/cimux-cli.js";
 export { applyInstallPlan, createInstallPlan } from "./install/cimux-install-plan.js";
 export {
+  detectInstalledHarnesses,
+  SUPPORTED_HARNESSES
+} from "./install/harnesses/index.js";
+export type { HarnessName } from "./install/harnesses/index.js";
+export {
   createCimuxMcpServer,
   defaultDatabasePath,
   runCimuxMcpServer
