@@ -209,6 +209,37 @@ describe("Cimux CLI", () => {
     expect(result.stderr).toContain("Invalid JSON for --artifacts-json");
   });
 
+  it("prefers the harness project dir env var over the process cwd", async () => {
+    const projectDir = path.join(tempDir, "real-workspace");
+    fs.mkdirSync(projectDir);
+
+    const stdout: string[] = [];
+    const code = await runCimuxCli(
+      ["brief", "--harness", "cursor"],
+      { CIMUX_DB_PATH: dbPath, CURSOR_PROJECT_DIR: projectDir },
+      "/somewhere/unrelated",
+      { log: (m) => stdout.push(m), error: () => {} }
+    );
+
+    expect(code).toBe(0);
+    expect(stdout.join("\n")).toContain("Cimux mailbox: cursor/real-workspace");
+  });
+
+  it("emits a Cursor hook envelope from brief --format cursor", async () => {
+    const result = await runCli([
+      "brief",
+      "--mailbox",
+      "cursor/test-session",
+      "--format",
+      "cursor"
+    ]);
+    const envelope = JSON.parse(result.stdout) as { additional_context: string };
+
+    expect(result.code).toBe(0);
+    expect(envelope.additional_context).toContain("Cimux mailbox: cursor/test-session");
+    expect(envelope.additional_context).toContain("send_context");
+  });
+
   it("applies --limit to check", async () => {
     await runCli(["register", "--mailbox", "codex/backend-auth"]);
     await runCli(["register", "--mailbox", "claude/frontend-login"]);

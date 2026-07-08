@@ -31,8 +31,32 @@ describe("Cimux install plan", () => {
       "/Users/example/.codex/AGENTS.md",
       "/Users/example/.claude.json",
       "/Users/example/.claude/settings.json",
-      "/Users/example/.claude/CLAUDE.md"
+      "/Users/example/.claude/CLAUDE.md",
+      "/Users/example/.cursor/mcp.json",
+      "/Users/example/.cursor/hooks.json"
     ]);
+  });
+
+  it("plans Cursor with its own hook shape and no norms file", () => {
+    const plan = createInstallPlan({
+      homeDirectory: "/Users/example",
+      packageCommand: "cimux",
+      harnesses: ["cursor"]
+    });
+
+    expect(plan.targets.map((target) => target.path)).toEqual([
+      "/Users/example/.cursor/mcp.json",
+      "/Users/example/.cursor/hooks.json"
+    ]);
+
+    const hooks = JSON.parse(plan.targets[1]?.snippet ?? "") as {
+      version: number;
+      hooks: { sessionStart: Array<{ command: string }> };
+    };
+    expect(hooks.version).toBe(1);
+    expect(hooks.hooks.sessionStart[0]?.command).toBe(
+      "cimux brief --harness cursor --format cursor"
+    );
   });
 
   it("plans only the requested harnesses", () => {
@@ -55,8 +79,8 @@ describe("Cimux install plan", () => {
     fs.mkdirSync(path.join(tempDir, ".codex"));
     expect(detectInstalledHarnesses(tempDir)).toEqual(["codex"]);
 
-    fs.mkdirSync(path.join(tempDir, ".claude"));
-    expect(detectInstalledHarnesses(tempDir)).toEqual(["codex", "claude"]);
+    fs.mkdirSync(path.join(tempDir, ".cursor"));
+    expect(detectInstalledHarnesses(tempDir)).toEqual(["codex", "cursor"]);
   });
 
   it("uses inferred mailbox hook commands so users do not name sessions by hand", () => {
@@ -94,14 +118,9 @@ describe("Cimux install plan", () => {
 
     const results = applyInstallPlan(plan);
 
-    expect(results.map((result) => result.status)).toEqual([
-      "created",
-      "created",
-      "created",
-      "created",
-      "created",
-      "created"
-    ]);
+    expect(results.map((result) => result.status)).toEqual(
+      new Array(plan.targets.length).fill("created")
+    );
     expect(fs.readFileSync(path.join(tempDir, ".codex", "config.toml"), "utf8")).toContain(
       "[mcp_servers.cimux]"
     );
@@ -194,14 +213,9 @@ describe("Cimux install plan", () => {
       "utf8"
     );
 
-    expect(secondRun.map((result) => result.status)).toEqual([
-      "unchanged",
-      "unchanged",
-      "unchanged",
-      "unchanged",
-      "unchanged",
-      "unchanged"
-    ]);
+    expect(secondRun.map((result) => result.status)).toEqual(
+      new Array(plan.targets.length).fill("unchanged")
+    );
     expect(codexConfig.match(/\[mcp_servers\.cimux\]/g)).toHaveLength(1);
     expect(claudeSettings.match(/cimux notify --harness claude/g)).toHaveLength(1);
   });
