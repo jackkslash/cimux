@@ -112,10 +112,24 @@ function applyInstallTarget(target: InstallPlanTarget): InstallResult {
 function applyTomlTarget(target: InstallPlanTarget): InstallResult {
   const existing = readTextIfExists(target.path);
   if (existing?.includes("[mcp_servers.cimux]")) {
+    // Refresh the command line in place (the cimux binary path changes when
+    // Node or the install location does) while keeping any user additions
+    // to the block, such as timeouts or env.
+    const refreshed = refreshCimuxTomlCommand(existing, target.snippet);
+    if (refreshed === existing) {
+      return {
+        path: target.path,
+        status: "unchanged",
+        backupPath: null
+      };
+    }
+
+    const backupPath = writeBackup(target.path, existing);
+    fs.writeFileSync(target.path, refreshed, "utf8");
     return {
       path: target.path,
-      status: "unchanged",
-      backupPath: null
+      status: "updated",
+      backupPath
     };
   }
 
@@ -194,18 +208,60 @@ function mergeJson(existing: Record<string, unknown>, incoming: Record<string, u
 }
 
 function mergeArray(existing: unknown[], incoming: unknown[]): unknown[] {
+  // Keys canonicalize cimux commands so a hook entry whose binary path moved
+  // (nvm upgrades, dev builds) is replaced instead of duplicated. Entries
+  // that are not cimux commands keep exact-content identity.
   const merged = [...existing];
-  const seen = new Set(existing.map(stableStringify));
+  const keys = merged.map((item) => stableStringify(canonicalizeCimuxCommands(item)));
 
   for (const item of incoming) {
-    const key = stableStringify(item);
-    if (!seen.has(key)) {
+    const key = stableStringify(canonicalizeCimuxCommands(item));
+    const at = keys.indexOf(key);
+    if (at >= 0) {
+      merged[at] = item;
+    } else {
       merged.push(item);
-      seen.add(key);
+      keys.push(key);
     }
   }
 
   return merged;
+}
+
+const CIMUX_COMMAND_PATTERN = /^\S*(?:cimux|bin\.js)\s+(?=notify|brief|mcp\b)/;
+
+function canonicalizeCimuxCommands(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(canonicalizeCimuxCommands);
+  }
+
+  if (isPlainObject(value)) {
+    const result: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value)) {
+      if (key === "command" && typeof entry === "string") {
+        result[key] = entry.replace(CIMUX_COMMAND_PATTERN, "cimux ");
+      } else {
+        result[key] = canonicalizeCimuxCommands(entry);
+      }
+    }
+    return result;
+  }
+
+  return value;
+}
+
+function refreshCimuxTomlCommand(existing: string, snippet: string): string {
+  const desired = snippet.match(/^command = .*$/m)?.[0];
+  if (!desired) {
+    return existing;
+  }
+
+  // Only touch the command line inside the cimux block; [^[]*? stops the
+  // match from crossing into the next TOML table.
+  return existing.replace(
+    /(\[mcp_servers\.cimux\][^[]*?)^command = .*$/m,
+    (_match, prefix: string) => `${prefix}${desired}`
+  );
 }
 
 function readTextIfExists(filePath: string): string | null {
